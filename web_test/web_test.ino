@@ -8,8 +8,8 @@
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
 
-char serverAddress[] = "mshack26.0123456789abcdef.dev/ws";  // server address
-int port = 443;
+char serverAddress[] = "mshack26.0123456789abcdef.dev";  // server address
+int port = 80;
 
 WiFiClient c;
 WebSocketClient client = WebSocketClient(c, serverAddress, port);
@@ -29,7 +29,6 @@ void setup()
   Serial.println(ssid);
   WiFi.mode(WIFI_STA); //Optional
   WiFi.begin(ssid, pass);
-  Serial.println(ssid);
   while (WiFi.status() != WL_CONNECTED) {
     // unsuccessful, retry in 4 seconds
     Serial.println("failed ... ");
@@ -42,7 +41,7 @@ void setup()
 
 void loop() {
   Serial.println("starting WebSocket client");
-  client.begin();
+  client.begin("/ws");
 
   while (client.connected()) {
     Serial.print("Sending hello ");

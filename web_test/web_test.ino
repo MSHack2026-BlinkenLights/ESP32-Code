@@ -29,9 +29,10 @@ void setup()
   Serial.println(ssid);
   WiFi.mode(WIFI_STA); //Optional
   WiFi.begin(ssid, pass);
+  Serial.println(ssid);
   while (WiFi.status() != WL_CONNECTED) {
     // unsuccessful, retry in 4 seconds
-    Serial.printf("failed ... ");
+    Serial.println("failed ... ");
     delay(4000);
     Serial.print("retrying ... ");
   }

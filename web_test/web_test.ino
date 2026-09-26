@@ -228,8 +228,8 @@ void loop()
         if (pickGroup(getRandomGroup()))
           delay(iStandardDelay * 100);
   */
-          if (pickGroup(getRandomGroup()))
-          delay(iStandardDelay * 100);
+          //if (pickGroup(getRandomGroup()))
+          //delay(iStandardDelay * 1000);
 }
 
 
@@ -370,7 +370,19 @@ void onMessageReceived(String answer)
   {
     handleChangeMessage(answerObject);
   }
+
+  else if(msgType == "buttonPress") {
+    handleButtonPress(answerObject);
+  }
 }
+
+void handleButtonPress(JSONVar answerObject) {
+  int x = answerObject["x"];
+  int y = answerObject["y"];
+  int group = ((y - 1) * 3) + (x - 1);
+  pickGroup(group);
+}
+
 
 
 // ============================================================
@@ -379,12 +391,9 @@ void onMessageReceived(String answer)
 
 void handleChangeMessage(JSONVar answerObject)
 {
-  String xString = answerObject["x"];
-  String yString = answerObject["y"];
+  int x = answerObject["x"];
+  int y = answerObject["y"];
   String colorString = answerObject["color"];
-
-  int x = xString.toInt();
-  int y = yString.toInt();
 
   Serial.print("Changed tile at ");
   Serial.print(x);
@@ -771,8 +780,6 @@ void setupTicTacToe()
   FadeOver();
 
   resetAll();
-
-  delay(5000);
 
   sendStartMessage();
 

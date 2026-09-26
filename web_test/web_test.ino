@@ -1,4 +1,4 @@
-#include "Freenove_WS2812_Lib_for_ESP32.h"
+#include <Adafruit_NeoPixel.h>
 
 #include <SPI.h>
 #include <WiFi.h>
@@ -11,9 +11,9 @@
 // LED CONFIGURATION
 // ============================================================
 
-#define LEDS_COUNT 256
-#define LEDS_PIN   23
-#define CHANNEL    0
+// New LED strip
+#define LEDS_COUNT 50
+#define LEDS_PIN   1        // XIAO ESP32-S3: A0 / D0 / GPIO1
 
 int iRowSize = 8;
 int iStandardDelay = 10;
@@ -50,20 +50,26 @@ int iLED_B[LEDS_COUNT] = {0};
 // ============================================================
 
 // Each Tic-Tac-Toe square consists of four physical LEDs.
+//
+// These are the LED positions for the NEW 50-LED strip.
 uint8_t mLEDGroups[9][4] =
 {
-  {7, 6, 8, 9},
-  {5, 4, 10, 11},
-  {3, 2, 12, 13},
+  // Untere Reihe
+  {11, 10, 9, 8},       // Feld 1: LEDs 12-9
+  {7, 6, 5, 4},         // Feld 2: LEDs 8-5
+  {3, 2, 1, 0},         // Feld 3: LEDs 4-1
 
-  {23, 22, 24, 25},
-  {21, 20, 26, 27},
-  {19, 18, 28, 29},
+  // Mittlere Reihe
+  {12, 13, 14, 15},     // Feld 4: LEDs 13-16
+  {16, 17, 18, 19},     // Feld 5: LEDs 17-20
+  {20, 21, 22, 23},     // Feld 6: LEDs 21-24
 
-  {39, 38, 40, 41},
-  {37, 36, 42, 43},
-  {35, 34, 44, 45}
+  // Obere Reihe
+  {35, 34, 33, 32},     // Feld 7: LEDs 36-33
+  {31, 30, 29, 28},     // Feld 8: LEDs 32-29
+  {27, 26, 25, 24}      // Feld 9: LEDs 28-25
 };
+
 
 int iLEDGroupStatus[9] = {0};
 
@@ -84,6 +90,7 @@ uint8_t mWins[8][3] =
   {2, 4, 6}
 };
 
+
 // Player 0 = Red
 // Player 1 = Blue
 uint8_t mPlayerClrs[2][3] =
@@ -100,13 +107,16 @@ int iGameActive = 0;
 // LED STRIP
 // ============================================================
 
-Freenove_ESP32_WS2812 strip =
-  Freenove_ESP32_WS2812(
-    LEDS_COUNT,
-    LEDS_PIN,
-    CHANNEL,
-    TYPE_GRB
-  );
+// NEW STRIP:
+// Adafruit NeoPixel
+// 50 LEDs
+// GPIO1
+// GRB, 800 kHz
+Adafruit_NeoPixel strip(
+  LEDS_COUNT,
+  LEDS_PIN,
+  NEO_GRB + NEO_KHZ800
+);
 
 
 // ============================================================
@@ -122,14 +132,17 @@ void setup()
     ;
   }
 
+
   // ----------------------------------------------------------
   // LED setup
   // ----------------------------------------------------------
 
   strip.begin();
   strip.setBrightness(5);
+  strip.show();
 
   resetAll();
+
 
   // ----------------------------------------------------------
   // WiFi setup
@@ -137,11 +150,13 @@ void setup()
 
   connectWiFi();
 
+
   // ----------------------------------------------------------
   // WebSocket setup
   // ----------------------------------------------------------
 
   connectWebSocket();
+
 
   // Tell server who we are and our grid size.
   JSONVar helloJson;
@@ -152,13 +167,16 @@ void setup()
   helloJson["y"] = "3";
 
   sendMessage(helloJson);
+
   sendStartMessage();
 
 
   Serial.println("Setup complete.");
 }
 
-void sendStartMessage() {
+
+void sendStartMessage()
+{
   // Tell server which game we are running.
   JSONVar startJson;
 
@@ -175,17 +193,25 @@ void sendStartMessage() {
 
 void loop()
 {
+  // ----------------------------------------------------------
   // Keep WiFi alive.
+  // ----------------------------------------------------------
+
   if (WiFi.status() != WL_CONNECTED)
   {
     connectWiFi();
   }
 
+
+  // ----------------------------------------------------------
   // Keep WebSocket alive.
+  // ----------------------------------------------------------
+
   if (!client.connected())
   {
     reconnectWebSocket();
   }
+
 
   // ----------------------------------------------------------
   // Check for incoming WebSocket messages.
@@ -200,6 +226,7 @@ void loop()
     onMessageReceived(message);
   }
 
+
   // ----------------------------------------------------------
   // Start a new local game after a previous game finished.
   // ----------------------------------------------------------
@@ -208,28 +235,6 @@ void loop()
   {
     setupTicTacToe();
   }
-
-  /*
-    IMPORTANT:
-
-    The original sketch automatically played random moves:
-
-        if(pickGroup(getRandomGroup()))
-          delay(iStandardDelay * 100);
-
-    That has been removed here.
-
-    The board is now controlled by WebSocket "change"
-    messages from the server.
-
-    If you want the ESP32 to remain a standalone random
-    Tic-Tac-Toe player, uncomment this:
-
-        if (pickGroup(getRandomGroup()))
-          delay(iStandardDelay * 100);
-  */
-          //if (pickGroup(getRandomGroup()))
-          //delay(iStandardDelay * 1000);
 }
 
 
@@ -371,18 +376,33 @@ void onMessageReceived(String answer)
     handleChangeMessage(answerObject);
   }
 
-  else if(msgType == "buttonPress") {
+
+  // ----------------------------------------------------------
+  // BUTTON PRESS
+  // ----------------------------------------------------------
+
+  else if (msgType == "buttonPress")
+  {
     handleButtonPress(answerObject);
   }
 }
 
-void handleButtonPress(JSONVar answerObject) {
+
+void handleButtonPress(JSONVar answerObject)
+{
   int x = answerObject["x"];
   int y = answerObject["y"];
+
+  if (x < 1 || x > 3 || y < 1 || y > 3)
+  {
+    Serial.println("Invalid button coordinates.");
+    return;
+  }
+
   int group = ((y - 1) * 3) + (x - 1);
+
   pickGroup(group);
 }
-
 
 
 // ============================================================
@@ -443,8 +463,6 @@ void handleChangeMessage(JSONVar answerObject)
 
   // ----------------------------------------------------------
   // Update local game state
-  //
-  // Non-black = occupied.
   // ----------------------------------------------------------
 
   if ((r + g + b) > 0)
@@ -488,7 +506,10 @@ bool parseRGB(String color, int &r, int &g, int &b)
     return false;
   }
 
-  String values = color.substring(4, color.length() - 1);
+  String values = color.substring(
+    4,
+    color.length() - 1
+  );
 
   int firstComma = values.indexOf(',');
   int secondComma = values.indexOf(',', firstComma + 1);
@@ -498,12 +519,19 @@ bool parseRGB(String color, int &r, int &g, int &b)
     return false;
   }
 
-  String rString = values.substring(0, firstComma);
+  String rString = values.substring(
+    0,
+    firstComma
+  );
+
   String gString = values.substring(
     firstComma + 1,
     secondComma
   );
-  String bString = values.substring(secondComma + 1);
+
+  String bString = values.substring(
+    secondComma + 1
+  );
 
   r = rString.toInt();
   g = gString.toInt();
@@ -580,6 +608,11 @@ int setLEDClr(
   int iB
 )
 {
+  if (iLED < 0 || iLED >= LEDS_COUNT)
+  {
+    return 0;
+  }
+
   int iStatus = 0;
 
   if ((iR + iG + iB) > 0)
@@ -587,29 +620,35 @@ int setLEDClr(
     iStatus = 1;
   }
 
-  strip.setLedColorData(
+
+  // ----------------------------------------------------------
+  // NEW Adafruit_NeoPixel API
+  // ----------------------------------------------------------
+
+  strip.setPixelColor(
     iLED,
     iR,
     iG,
     iB
   );
 
-  strip.show();
 
   iLEDStates[iLED] = iStatus;
 
+
+  // Store RGB state.
   if (!iStatus)
   {
     iLED_R[iLED] = 0;
     iLED_G[iLED] = 0;
     iLED_B[iLED] = 0;
-
-    return iStatus;
   }
-
-  iLED_R[iLED] = iR;
-  iLED_G[iLED] = iG;
-  iLED_B[iLED] = iB;
+  else
+  {
+    iLED_R[iLED] = iR;
+    iLED_G[iLED] = iG;
+    iLED_B[iLED] = iB;
+  }
 
   return iStatus;
 }
@@ -622,6 +661,11 @@ void setGroupClr(
   int iB
 )
 {
+  if (iGroup < 0 || iGroup >= 9)
+  {
+    return;
+  }
+
   for (int i = 0; i < 4; i++)
   {
     setLEDClr(
@@ -631,6 +675,9 @@ void setGroupClr(
       iB
     );
   }
+
+  // Show the complete group at once.
+  strip.show();
 }
 
 
@@ -638,13 +685,18 @@ int toggleLED(int iLED)
 {
   if (getLEDStatus(iLED))
   {
-    return setLEDClr(
+    setLEDClr(
       iLED,
       0,
       0,
       0
     );
+
+    strip.show();
+
+    return 0;
   }
+
 
   int r = iLED_R[iLED];
   int g = iLED_G[iLED];
@@ -664,6 +716,8 @@ int toggleLED(int iLED)
     b
   );
 
+  strip.show();
+
   return getLEDStatus(iLED);
 }
 
@@ -677,14 +731,8 @@ void resetAll()
   wipeBoard();
   resetLEDGroups();
   resetPlayerdata();
-  sendGameEnd();
 }
 
-void sendGameEnd() {
-  JSONVar endJson;
-  endJson["msgType"] = "gameEnd";
-  sendMessage(endJson);
-}
 
 void wipeBoard()
 {
@@ -701,6 +749,8 @@ void wipeBoard()
       0
     );
   }
+
+  strip.show();
 }
 
 
@@ -724,10 +774,10 @@ void resetLEDGroups()
         0,
         0
       );
-
-      sendChange(j,i,0,0,0);
     }
   }
+
+  strip.show();
 }
 
 
@@ -791,10 +841,16 @@ void setupTicTacToe()
 
 int pickGroup(int iGroup)
 {
+  if (iGroup < 0 || iGroup >= 9)
+  {
+    return 0;
+  }
+
   if (getLEDGroupStatus(iGroup))
   {
     return 0;
   }
+
 
   setGroupClr(
     iGroup,
@@ -900,19 +956,25 @@ int win(int iIndex)
   int iG = mPlayerClrs[iActivePlayer][1];
   int iB = mPlayerClrs[iActivePlayer][2];
 
+
   for (int iCount = 0; iCount < 3; iCount++)
   {
     for (int i = 0; i < 3; i++)
     {
       int group = mWins[iIndex][i];
 
+
+      // ------------------------------------------------------
       // Green blink
+      // ------------------------------------------------------
+
       setGroupClr(
         group,
         0,
         255,
         0
       );
+
 
       // Send green state to server
       int x = (group % 3) + 1;
@@ -928,7 +990,11 @@ int win(int iIndex)
 
       delay(iStandardDelay * 50);
 
+
+      // ------------------------------------------------------
       // Restore player's color
+      // ------------------------------------------------------
+
       setGroupClr(
         group,
         iR,
@@ -936,7 +1002,6 @@ int win(int iIndex)
         iB
       );
 
-      // Send player's color to server
       sendChange(
         x,
         y,
@@ -988,14 +1053,17 @@ void FadeOver()
   int iG = 255;
   int iB = 0;
 
+
   setGroupClr(0, iR, iG, iB);
 
   delay(iStandardDelay);
+
 
   setGroupClr(1, iR, iG, iB);
   setGroupClr(3, iR, iG, iB);
 
   delay(iStandardDelay);
+
 
   setGroupClr(2, iR, iG, iB);
   setGroupClr(4, iR, iG, iB);
@@ -1003,24 +1071,32 @@ void FadeOver()
 
   delay(iStandardDelay);
 
+
   setGroupClr(5, iR, iG, iB);
   setGroupClr(7, iR, iG, iB);
 
   delay(iStandardDelay);
+
 
   setGroupClr(8, iR, iG, iB);
 
   delay(iStandardDelay * 2);
 
 
+  // ----------------------------------------------------------
+  // Turn everything off
+  // ----------------------------------------------------------
+
   setGroupClr(0, 0, 0, 0);
 
   delay(iStandardDelay);
+
 
   setGroupClr(1, 0, 0, 0);
   setGroupClr(3, 0, 0, 0);
 
   delay(iStandardDelay);
+
 
   setGroupClr(2, 0, 0, 0);
   setGroupClr(4, 0, 0, 0);
@@ -1028,10 +1104,12 @@ void FadeOver()
 
   delay(iStandardDelay);
 
+
   setGroupClr(5, 0, 0, 0);
   setGroupClr(7, 0, 0, 0);
 
   delay(iStandardDelay);
+
 
   setGroupClr(8, 0, 0, 0);
 }

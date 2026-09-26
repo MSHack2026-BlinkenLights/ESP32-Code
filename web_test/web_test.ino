@@ -2,14 +2,15 @@
 #include <WiFi.h>
 #include <ArduinoHttpClient.h>
 #include "arduino_secrets.h"
+#include <Arduino_JSON.h>
 
 ///////please enter your sensitive data in the Secret tab/arduino_secrets.h
 /////// WiFi Settings ///////
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
 
-char serverAddress[] = "mshack26.0123456789abcdef.dev";  // server address
-int port = 80;
+char serverAddress[] = "158.220.127.154";  // server address
+int port = 3400;
 
 WiFiClient c;
 WebSocketClient client = WebSocketClient(c, serverAddress, port);
@@ -37,21 +38,67 @@ void setup()
   }
 
   Serial.println("connected");
-}
 
-void loop() {
   Serial.println("starting WebSocket client");
   client.begin("/ws");
 
-  while (client.connected()) {
-    Serial.print("Sending hello ");
-    Serial.println(count);
+  JSONVar helloJson;
+  helloJson["msgType"] = "hello";
+  helloJson["id"] = "55";
+  helloJson["x"] = "3";
+  helloJson["y"] = "3";
+  sendMessage(helloJson);
 
-    // send a hello #
+  JSONVar startJson;
+  startJson["msgType"] = "gameStart";
+  startJson["game"] = "tic-tac-toe";
+  sendMessage(startJson);
+}
+
+void sendMessage(JSONVar msg) {
     client.beginMessage(TYPE_TEXT);
-    client.print("hello ");
-    client.print(count);
+    client.print(JSON.stringify(msg));
     client.endMessage();
+}
+
+void onMessageRecieved(String answer) {
+  JSONVar answerObject = JSON.parse(answer);
+  Serial.println("Received a message:");
+  String msgType = answerObject["msgType"];
+  Serial.println("Type: " + msgType);
+  if(msgType == "hello") {
+    Serial.print("Said hello with id ");
+    Serial.print(answerObject["id"]);
+    Serial.println();
+    Serial.print("Grid size is ");
+    Serial.print(answerObject["x"]);
+    Serial.print("x");
+    Serial.print(answerObject["y"]);
+    Serial.println();
+  } else if(msgType == "gameStart") {
+    Serial.print("Beginning game ");
+    Serial.print(answerObject["game"]);
+    Serial.println();
+  } else if(msgType == "change") {
+    Serial.print("Changed tile at ");
+    Serial.print(answerObject["x"]);
+    Serial.print("x");
+    Serial.print(answerObject["y"]);
+    Serial.print(" to color ");
+    Serial.print(answerObject["color"]);
+    Serial.println();
+  }
+}
+
+void loop() {
+  while (client.connected()) {
+    Serial.print("Messaging!");
+    JSONVar changeJson;
+    changeJson["msgType"] = "change";
+    changeJson["x"] = "1";
+    changeJson["y"] = "1";
+    changeJson["color"] = "rgb(255, 255, 255)";
+    sendMessage(changeJson);
 
     // increment count for next message
     count++;
@@ -60,13 +107,20 @@ void loop() {
     int messageSize = client.parseMessage();
 
     if (messageSize > 0) {
-      Serial.println("Received a message:");
-      Serial.println(client.readString());
+      onMessageRecieved(client.readString());
     }
 
     // wait 5 seconds
     delay(5000);
   }
 
-  Serial.println("disconnected");
+  Serial.println("disconnected, trying again");
+  client.begin("/ws");
+
+  JSONVar helloJson;
+  helloJson["msgType"] = "hello";
+  helloJson["id"] = "55";
+  helloJson["x"] = "3";
+  helloJson["y"] = "3";
+  sendMessage(helloJson);
 }

@@ -90,15 +90,32 @@ void onMessageRecieved(String answer) {
   }
 }
 
+void sendChange(String x, String y, String col) {
+    JSONVar changeJson;
+    changeJson["msgType"] = "change";
+    changeJson["x"] = x;
+    changeJson["y"] = y;
+    changeJson["color"] = col;
+    sendMessage(changeJson);
+}
+
+String randomRgb() {
+  String rgb = "rgb(";
+  rgb += random(0, 255);
+  rgb += ",";
+  rgb += random(0, 255);
+  rgb += ",";  
+  rgb += random(0, 255);
+  rgb += ")";
+  Serial.print(rgb);
+  return rgb;
+}
+
 void loop() {
   while (client.connected()) {
     Serial.print("Messaging!");
     JSONVar changeJson;
-    changeJson["msgType"] = "change";
-    changeJson["x"] = "1";
-    changeJson["y"] = "1";
-    changeJson["color"] = "rgb(255, 255, 255)";
-    sendMessage(changeJson);
+    sendChange("1", "1", randomRgb());
 
     // increment count for next message
     count++;
@@ -117,10 +134,18 @@ void loop() {
   Serial.println("disconnected, trying again");
   client.begin("/ws");
 
-  JSONVar helloJson;
-  helloJson["msgType"] = "hello";
-  helloJson["id"] = "55";
-  helloJson["x"] = "3";
-  helloJson["y"] = "3";
-  sendMessage(helloJson);
+  JSONVar reconnectJson;
+  reconnectJson["msgType"] = "reconnect";
+  reconnectJson["id"] = "55";
+  sendMessage(reconnectJson);
+
+  sendChange("1", "1", "rgb(255, 255, 255)");
+  sendChange("1", "2", "rgb(255, 255, 255)");
+  sendChange("1", "3", "rgb(255, 255, 255)");
+  sendChange("2", "1", "rgb(255, 255, 255)");
+  sendChange("2", "2", "rgb(255, 255, 255)");
+  sendChange("2", "3", "rgb(255, 255, 255)");
+  sendChange("3", "1", "rgb(255, 255, 255)");
+  sendChange("3", "2", "rgb(255, 255, 255)");
+  sendChange("3", "3", "rgb(255, 255, 255)");
 }
